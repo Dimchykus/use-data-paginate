@@ -4,7 +4,6 @@
   "author": "Dimchykus",
   "repository": "Dimchykus/use-data-paginate",
   "version": "0.1.0",
-  "private": true,
   "main": "index.tsx",
   "dependencies": {
     "axios": "^1.4.0",
