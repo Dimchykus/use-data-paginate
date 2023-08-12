@@ -1,26 +1,45 @@
 {
-  "name": "pagination-hook",
+  "name": "use-data-paginate",
+  "description": "React hook for data pagination",
+  "author": "Dimchykus",
+  "repository": "Dimchykus/use-data-paginate",
   "version": "0.1.0",
   "private": true,
+  "main": "index.tsx",
   "dependencies": {
+    "axios": "^1.4.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1",
+    "typescript": "^4.4.2"
+  },
+  "devDependencies": {
     "@testing-library/jest-dom": "^5.14.1",
     "@testing-library/react": "^13.0.0",
+    "@testing-library/react-hooks": "^8.0.1",
     "@testing-library/user-event": "^13.2.1",
     "@types/jest": "^27.0.1",
     "@types/node": "^16.7.13",
     "@types/react": "^18.0.0",
-    "@types/react-dom": "^18.0.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-scripts": "5.0.1",
-    "typescript": "^4.4.2",
-    "web-vitals": "^2.1.0"
+    "@types/react-dom": "^18.0.0"
   },
+  "keywords": [
+    "react",
+    "hook",
+    "hooks",
+    "data",
+    "pagination",
+    "paginate",
+    "use pagination",
+    "use paginate",
+    "use data paginate"
+  ],
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "prod": "yarn build && npx serve -s build"
   },
   "eslintConfig": {
     "extends": [
@@ -28,16 +47,9 @@
       "react-app/jest"
     ]
   },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+  "jest": {
+    "moduleNameMapper": {
+      "axios": "axios/dist/node/axios.cjs"
+    }
   }
 }
