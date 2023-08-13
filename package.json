@@ -3,7 +3,7 @@
   "description": "React hook for data pagination",
   "author": "Dimchykus",
   "repository": "Dimchykus/use-data-paginate",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "main": "src/index.tsx",
   "dependencies": {
     "axios": "^1.4.0",
