@@ -1,24 +1,60 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Api } from "./axios";
-import useIsMount from "./utils/useMount";
-import paginateArray from "./utils/paginatArray";
-import { isPaginationWithUrl } from "./utils/checkType";
-import arraysEqual from "./utils/compare";
+import { DependencyList, EffectCallback, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Api from "./axios";
 
-export interface PaginatedObj<T> {
+const isPaginationWithUrl = (obj: any): obj is PaginationPropsWithUrl<any, any> => obj.hasOwnProperty("url");
+
+const paginateArray = <T,>(array: any, itemsPerPage: number) => {
+  const totalPages = Math.ceil(array.length / itemsPerPage);
+  const paginatedObject: PaginatedObj<T> = {};
+
+  for (let page = 0; page < totalPages; page++) {
+    const startIndex = page * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    paginatedObject[page] = array.slice(startIndex, endIndex);
+  }
+
+  return paginatedObject;
+};
+
+
+const useIsMount = (callback: EffectCallback, dependencies: DependencyList) => {
+  const isFirstRenderRef = useRef(true);
+
+  useEffect(() => {
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
+      return;
+    }
+
+    callback();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, dependencies);
+
+  return isFirstRenderRef.current;
+};
+
+
+const objectsEqual = <T extends Record<string, any>>(o1: T, o2: T) =>
+  Object.keys(o1).length === Object.keys(o2).length &&
+  Object.keys(o1).every((p: keyof T) => o1[p] === o2[p]);
+
+const arraysEqual = <T extends Record<string, any>>(array1: T[], array2: T[]) =>
+  array1.length === array2.length && array1.every((item: T, id: number) => objectsEqual(item, array2[id] ?? {}));
+
+interface PaginatedObj<T> {
   [key: string]: T[];
 }
 
-export interface PaginationProps<T, R> {
+interface PaginationProps<R> {
   page: number;
   limit?: number;
   parseTotalItems?: (data: R) => number;
   parseTotalPages?: (data: R) => number;
 }
 
-export interface PaginationPropsWithUrl<T, R> extends PaginationProps<T, R> {
+interface PaginationPropsWithUrl<T, R> extends PaginationProps<R> {
   url: string;
   pageName?: string;
   limitName?: string;
@@ -26,8 +62,8 @@ export interface PaginationPropsWithUrl<T, R> extends PaginationProps<T, R> {
   data?: never;
 }
 
-export interface PaginationPropsWithPredefinedData<T, R>
-  extends PaginationProps<T, R> {
+interface PaginationPropsWithPredefinedData<T, R>
+  extends PaginationProps<R> {
   data: T[];
   url?: never;
   pageName?: never;
@@ -35,11 +71,11 @@ export interface PaginationPropsWithPredefinedData<T, R>
   parseData?: never;
 }
 
-export type IPagination<T, R> =
+type IPagination<T, R> =
   | PaginationPropsWithUrl<T, R>
   | PaginationPropsWithPredefinedData<T, R>;
 
-export interface PaginationInstance<T> {
+interface PaginationInstance<T> {
   data: T[];
   currentPage: number;
   hasNext: boolean;
@@ -134,7 +170,7 @@ const useDataPaginate = <T extends Record<string, any>, R>(props: IPagination<T,
     let count = 0;
 
     Object.keys(allItems).forEach((key) => {
-      count += allItems[key].length;
+      count += (allItems[key] ?? []).length ?? 0;
     });
 
     return count;
@@ -193,7 +229,7 @@ const useDataPaginate = <T extends Record<string, any>, R>(props: IPagination<T,
           [limitName]: limit || currentLimit,
         },
       })
-        .then((data) => {
+        .then((data: any) => {
           let res = data;
           setIsLoading(false);
 
@@ -232,11 +268,13 @@ const useDataPaginate = <T extends Record<string, any>, R>(props: IPagination<T,
           setDisplayingData(res);
           setPageItems(page, res);
         })
-        .catch((err) => {
+        .catch((err: any) => {
           setIsLoading(false);
           setError(err);
         });
     }
+
+    return null;
   };
 
   const initData = useCallback(() => {
@@ -249,7 +287,7 @@ const useDataPaginate = <T extends Record<string, any>, R>(props: IPagination<T,
 
       setTotalItems(passedData.length);
 
-      const pages = parseInt(Object.keys(allItems)[Object.keys(allItems).length - 1], 10);
+      const pages = parseInt(Object.keys(allItems)[Object.keys(allItems).length - 1] ?? '', 10);
 
       if (!Number.isNaN(pages)) { setTotalPages(pages + 1); }
       if (pageItems) { setDisplayingData(pageItems); }
@@ -259,6 +297,7 @@ const useDataPaginate = <T extends Record<string, any>, R>(props: IPagination<T,
 
   useEffect(() => {
     fetch(currentPage, undefined, { initial: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -274,6 +313,7 @@ const useDataPaginate = <T extends Record<string, any>, R>(props: IPagination<T,
     if (data) {
       setPassedData(data);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateDataDependency]);
 
   useIsMount(() => {

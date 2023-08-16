@@ -9,14 +9,14 @@ export interface ApiRequestProps {
   responseType?: "json" | "blob";
 }
 
-export const Api = ({
+const Api = ({
   url,
   method = "GET",
   data = {},
   params = {},
   headers = {},
   responseType = "json",
-}: ApiRequestProps) =>
+}: ApiRequestProps): any =>
   axios
     .get(url, {
       method,
@@ -25,9 +25,11 @@ export const Api = ({
       headers,
       responseType,
     })
-    .then((response) => {
+    .then((response: any) => {
       return response.data;
     })
-    .catch((error) => {
+    .catch((error: any) => {
       throw error;
     });
+
+export default Api;
