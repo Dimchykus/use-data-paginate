@@ -1,11 +1,13 @@
-"use client"
+"use client";
 
-import { DependencyList, EffectCallback, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Api from "./axios";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Api from "./api";
 
-const isPaginationWithUrl = (obj: any): obj is PaginationPropsWithUrl<any, any> => obj.hasOwnProperty("url");
+const isPaginationWithUrl = (
+  obj: any
+): obj is PaginationPropsWithUrl<any, any> => obj.hasOwnProperty("url");
 
-const paginateArray = <T,>(array: any, itemsPerPage: number) => {
+const paginateArray = <T>(array: any, itemsPerPage: number) => {
   const totalPages = Math.ceil(array.length / itemsPerPage);
   const paginatedObject: PaginatedObj<T> = {};
 
@@ -18,30 +20,10 @@ const paginateArray = <T,>(array: any, itemsPerPage: number) => {
   return paginatedObject;
 };
 
-
-const useIsMount = (callback: EffectCallback, dependencies: DependencyList) => {
-  const isFirstRenderRef = useRef(true);
-
-  useEffect(() => {
-    if (isFirstRenderRef.current) {
-      isFirstRenderRef.current = false;
-      return;
-    }
-
-    callback();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, dependencies);
-
-  return isFirstRenderRef.current;
-};
-
-
-const objectsEqual = <T extends Record<string, any>>(o1: T, o2: T) =>
-  Object.keys(o1).length === Object.keys(o2).length &&
-  Object.keys(o1).every((p: keyof T) => o1[p] === o2[p]);
-
-const arraysEqual = <T extends Record<string, any>>(array1: T[], array2: T[]) =>
-  array1.length === array2.length && array1.every((item: T, id: number) => objectsEqual(item, array2[id] ?? {}));
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
 
 interface PaginatedObj<T> {
   [key: string]: T[];
@@ -50,8 +32,10 @@ interface PaginatedObj<T> {
 interface PaginationProps<R> {
   page: number;
   limit?: number;
+  isLoading?: boolean;
   parseTotalItems?: (data: R) => number;
   parseTotalPages?: (data: R) => number;
+  onPageChange?: (page: number) => void;
 }
 
 interface PaginationPropsWithUrl<T, R> extends PaginationProps<R> {
@@ -62,20 +46,20 @@ interface PaginationPropsWithUrl<T, R> extends PaginationProps<R> {
   data?: never;
 }
 
-interface PaginationPropsWithPredefinedData<T, R>
-  extends PaginationProps<R> {
+interface PaginationPropsWithPredefinedData<T, R> extends PaginationProps<R> {
   data: T[];
   url?: never;
   pageName?: never;
   limitName?: never;
   parseData?: never;
+  onPageChange?: (page: number) => void;
 }
 
-type IPagination<T, R> =
+export type IPagination<T, R> =
   | PaginationPropsWithUrl<T, R>
   | PaginationPropsWithPredefinedData<T, R>;
 
-interface PaginationInstance<T> {
+export interface PaginationInstance<T> {
   data: T[];
   currentPage: number;
   hasNext: boolean;
@@ -93,77 +77,79 @@ interface PaginationInstance<T> {
   first(): void;
   last(): void;
   setPage(page: number): boolean;
-  setLimit(limit: number): void;
   setUrl?(url: string): void;
   setOnChange?(onChange: (page: number) => void): void;
 }
 
-const useDataPaginate = <T extends Record<string, any>, R>(props: IPagination<T, R>): PaginationInstance<T> => {
+const useDataPaginate = <T extends Record<string, any>, R>(
+  props: IPagination<T, R>
+): PaginationInstance<T> => {
   const {
     page,
-    limit,
+    limit = 25,
     data,
     url,
     pageName = "page",
-    limitName = 'limit',
+    limitName = "limit",
+    isLoading: isDataLoading,
     parseData,
     parseTotalItems,
     parseTotalPages,
+    onPageChange,
   } = props;
-  const [currentPage, setCurrentPage] = useState(page ?? 1);
-  const [currentLimit, setCurrentLimit] = useState(limit ?? 25);
+  const [currentPage, setCurrentPage] = useState<number>(page || 1);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [displayingData, setDisplayingData] = useState<T[]>([]);
   const [allItems, setAllItems] = useState<PaginatedObj<T>>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [passedData, setPassedData] = useState<T[]>(data ?? []);
+  const [passedData, setPassedData] = useState<T[] | null>(data ?? null);
   const [error, setError] = useState<any>(null);
 
-  const hasNext = useMemo(() => currentPage * currentLimit < totalItems, [currentLimit, currentPage, totalItems]);
+  const hasNext = useMemo(
+    () => currentPage * limit < totalItems,
+    [limit, currentPage, totalItems]
+  );
   const hasPrev = useMemo(() => currentPage > 1, [currentPage]);
   const isFirst = useMemo(() => currentPage === 1, [currentPage]);
-  const isLast = useMemo(() => currentPage * currentLimit >= totalItems, [currentLimit, currentPage, totalItems]);
+  const isLast = useMemo(
+    () => currentPage * limit >= totalItems,
+    [limit, currentPage, totalItems]
+  );
+
+  const isCustomGetPage = !!onPageChange ?? false;
 
   const next = () => {
-    if (hasNext) {
-      setCurrentPage((prev) => prev + 1);
-      fetch(currentPage + 1);
-    }
+    setPage(currentPage + 1);
+    fetch(currentPage + 1);
   };
 
   const prev = () => {
-    if (hasPrev) {
-      setCurrentPage((prev) => prev - 1);
-      fetch(currentPage - 1);
-    }
+    setPage(currentPage - 1);
+    fetch(currentPage - 1);
   };
 
   const first = () => {
     if (!isFirst) {
       setCurrentPage(1);
+      fetch(page);
     }
   };
 
-  const last = () => {
-    if (!isLast && limit) {
-      setCurrentPage(Math.ceil(totalItems / limit));
+  const last = useCallback(() => {
+    if (!isLast) {
+      setCurrentPage(totalPages);
+      fetch(totalPages);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalPages, isLast]);
 
   const setPage = (page: number): boolean => {
-    if (page < 1 || (limit && page > Math.ceil(totalItems / limit)))
-      return false;
+    if (page < 1 || page > Math.ceil(totalItems)) return false;
 
     setCurrentPage(page);
     fetch(page);
 
     return true;
-  };
-
-  const setLimit = (limit: number) => {
-    if (limit < 1) return;
-    setCurrentLimit(limit);
   };
 
   const countItems = () => {
@@ -176,41 +162,49 @@ const useDataPaginate = <T extends Record<string, any>, R>(props: IPagination<T,
     return count;
   };
 
-  const getPageItems = (page: number, items?: PaginatedObj<T>) => {
-    const data = items ? items : allItems
+  const isPageExists = useCallback(
+    (page: number, data?: PaginatedObj<T>) => {
+      const dataPage = page - 1;
+      if (!data) return dataPage in allItems && !!allItems[dataPage];
 
-    if (!isPageExists(page, allItems)) {
-      return null;
-    }
+      return dataPage in data && !!data[dataPage];
+    },
+    [allItems]
+  );
 
-    return data[page - 1];
-  };
+  const getPageItems = useCallback(
+    (page: number, items?: PaginatedObj<T>) => {
+      const data = items ? items : allItems;
 
-  const isPageExists = (page: number, data?: PaginatedObj<T>) => {
-    if (!data) return allItems[page]?.length !== 0 || !!allItems[page];
+      if (!isPageExists(page)) {
+        return null;
+      }
 
-    return data[page]?.length !== 0 || !!data[page];
-  };
+      return data[page - 1];
+    },
+    [allItems, isPageExists]
+  );
 
   const setPageItems = (page: number, data: T[]) => {
     setAllItems((prev) => {
       const newData = { ...prev };
-      newData[page] = data;
+      newData[page - 1] = data;
 
       return newData;
     });
   };
 
-  const fetch = (
-    page: number,
-    limit?: number,
-    params?: { initial?: boolean; noCheckExisting?: boolean }
-  ) => {
-    const loadedPage = getPageItems(page);
+  const customGetPage = (page: number, limit?: number) => {
+    if (!onPageChange || isPageExists(page)) return;
 
-    if (loadedPage && !params?.noCheckExisting) {
-      setDisplayingData(loadedPage);
-      setIsLoading(false);
+    console.log("customGetPage", page, limit);
+    onPageChange(page);
+  };
+
+  const fetch = async (page: number) => {
+    if (isCustomGetPage) {
+      customGetPage(page, limit);
+
       return;
     }
 
@@ -221,57 +215,49 @@ const useDataPaginate = <T extends Record<string, any>, R>(props: IPagination<T,
     if (url) {
       setIsLoading(true);
 
-      Api({
-        url: url,
-        method: "GET",
-        params: {
-          [pageName]: page,
-          [limitName]: limit || currentLimit,
-        },
-      })
-        .then((data: any) => {
-          let res = data;
-          setIsLoading(false);
-
-          if (parseData) {
-            res = parseData(data);
-          }
-
-          if (!Array.isArray(res)) {
-            res = [];
-            new Error("Data must be an array");
-          }
-
-          if (parseTotalItems) {
-            const total = parseTotalItems(data);
-            setTotalItems(total);
-          } else {
-            setTotalItems(data.length);
-          }
-
-          if (parseTotalPages) {
-            const total = parseTotalPages(data);
-            setTotalPages(total);
-
-            if (currentPage > total) {
-              setCurrentPage(total);
-            }
-          }
-
-          if (params?.initial) {
-            setPageItems(1, res);
-            setDisplayingData(res);
-
-            return;
-          }
-
-          setDisplayingData(res);
-          setPageItems(page, res);
-        })
-        .catch((err: any) => {
-          setIsLoading(false);
-          setError(err);
+      try {
+        const data = await Api({
+          url: url,
+          method: "GET",
+          params: {
+            [pageName]: page,
+            [limitName]: limit,
+          },
         });
+
+        let res = data;
+        setIsLoading(false);
+
+        if (parseData) {
+          res = parseData(data);
+        }
+
+        if (!Array.isArray(res)) {
+          res = [];
+          throw new Error("Data must be an array");
+        }
+
+        if (parseTotalItems) {
+          const total = parseTotalItems(data);
+          setTotalItems(total);
+        } else {
+          setTotalItems(data.length);
+        }
+
+        if (parseTotalPages) {
+          const total = parseTotalPages(data);
+          setTotalPages(total);
+
+          if (currentPage > total) {
+            setCurrentPage(total);
+          }
+        }
+
+        setPageItems(page, res);
+      } catch (err) {
+        setIsLoading(false);
+        setError(getErrorMessage(err));
+      }
     }
 
     return null;
@@ -279,63 +265,65 @@ const useDataPaginate = <T extends Record<string, any>, R>(props: IPagination<T,
 
   const initData = useCallback(() => {
     if (passedData) {
+      const res = paginateArray<T>(passedData, limit);
 
-      const res = paginateArray<T>(passedData, currentLimit);
-      setAllItems(res)
+      console.log("res", res);
 
-      const pageItems = getPageItems(currentPage, allItems);
+      setAllItems(res);
+
+      let page = currentPage;
+
+      const pageExist = isPageExists(page, res);
+
+      if (!pageExist) {
+        page = 1;
+      }
+
+      setCurrentPage(page);
 
       setTotalItems(passedData.length);
 
-      const pages = parseInt(Object.keys(allItems)[Object.keys(allItems).length - 1] ?? '', 10);
+      const pages = parseInt(
+        Object.keys(res)[Object.keys(res).length - 1] ?? "",
+        10
+      );
 
-      if (!Number.isNaN(pages)) { setTotalPages(pages + 1); }
-      if (pageItems) { setDisplayingData(pageItems); }
+      if (!Number.isNaN(pages)) {
+        setTotalPages(pages + 1);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [passedData]);
+  }, [passedData, limit]);
 
   useEffect(() => {
-    fetch(currentPage, undefined, { initial: true });
+    if (!passedData) return;
+
+    console.log("initData", passedData, limit, limit);
+    initData();
+  }, [initData, passedData, limit]);
+
+  useEffect(() => {
+    fetch(currentPage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    initData();
-  }, [initData, passedData]);
-
-
-  const updateDataDependency = useMemo(() => {
-    return arraysEqual(passedData, data ?? []);
-  }, [passedData, data])
+  // const updateDataDependency = useMemo(() => {
+  //   return arraysEqual(passedData, data ?? []);
+  // }, [passedData, data]);
 
   useEffect(() => {
     if (data) {
       setPassedData(data);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [updateDataDependency]);
+  }, [data]);
 
-  useIsMount(() => {
-    setAllItems({});
-    setDisplayingData([]);
-
-    if (data) {
-      initData();
-      return;
-    }
-
-    const page = Math.ceil(totalItems / currentLimit);
-
-    if (currentPage > page) {
-      setCurrentPage(page);
-    }
-
-    fetch(page, currentLimit, { noCheckExisting: true });
-  }, [currentLimit]);
+  useEffect(() => {
+    if (typeof isDataLoading === "boolean") setIsLoading(isDataLoading);
+  }, [isDataLoading]);
 
   const instance: PaginationInstance<T> = {
-    data: displayingData,
+    data: getPageItems(currentPage) ?? [],
     currentPage,
     hasNext,
     hasPrev,
@@ -346,13 +334,12 @@ const useDataPaginate = <T extends Record<string, any>, R>(props: IPagination<T,
     fetchedCount: countItems(),
     loading: isLoading,
     error,
-    limit: currentLimit,
+    limit,
     next,
     prev,
     first,
     last,
     setPage,
-    setLimit,
   };
 
   return instance;
