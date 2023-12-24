@@ -3,7 +3,7 @@
   "description": "React hook for data pagination",
   "author": "Dimchykus",
   "repository": "Dimchykus/use-data-paginate",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
   "files": [
