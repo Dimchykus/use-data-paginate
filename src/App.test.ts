@@ -385,7 +385,7 @@ describe("pagination hook - predefined data", () => {
       result.current.setPage(99);
     });
 
-    expect(result.current.currentPage).toBe(1);
+    expect(result.current.currentPage).toBe(99);
 
     act(() => {
       result.current.setPage(2);
@@ -445,6 +445,137 @@ describe("fetch data", () => {
           name: "Item 2",
           description: "Description 2",
           price: 200,
+        },
+      ]);
+    });
+  });
+
+  test("update limit", async () => {
+    (axios.get as jest.Mock)
+      .mockResolvedValueOnce({
+        data: [
+          {
+            name: "Item 1",
+            description: "Description 1",
+            price: 100,
+          },
+          {
+            name: "Item 2",
+            description: "Description 2",
+            price: 200,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            name: "Item 5",
+            description: "Description 5",
+            price: 500,
+          },
+          {
+            name: "Item 6",
+            description: "Description 6",
+            price: 600,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            name: "Item 9",
+            description: "Description 9",
+            price: 900,
+          },
+          {
+            name: "Item 10",
+            description: "Description 10",
+            price: 1000,
+          },
+        ],
+      });
+
+    const { result: stateResult } = renderHook(() => useState(2));
+
+    const { result, rerender } = renderHook<PaginationInstance<any>, any>(
+      ({ page, limit, url }) =>
+        useDataPaginate({
+          page,
+          limit,
+          url,
+        }),
+      {
+        initialProps: {
+          page: 1,
+          limit: stateResult.current[0],
+          url: "http://localhost:3000/api/items",
+        },
+      }
+    );
+
+    await waitFor(() => {
+      expect(axios.get).toBeCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(stateResult.current[0]).toBe(2);
+    });
+
+    await waitFor(() => {
+      expect(result.current.data).toEqual([
+        {
+          name: "Item 1",
+          description: "Description 1",
+          price: 100,
+        },
+        {
+          name: "Item 2",
+          description: "Description 2",
+          price: 200,
+        },
+      ]);
+    });
+
+    act(() => {
+      result.current.setPage(3);
+    });
+
+    await waitFor(() => {
+      expect(result.current.data).toEqual([
+        {
+          name: "Item 5",
+          description: "Description 5",
+          price: 500,
+        },
+        {
+          name: "Item 6",
+          description: "Description 6",
+          price: 600,
+        },
+      ]);
+    });
+
+    act(() => {
+      stateResult.current[1](4);
+    });
+
+    rerender({
+      page: 3,
+      limit: stateResult.current[0],
+      url: "http://localhost:3000/api/items",
+    });
+
+    await waitFor(() => {
+      expect(result.current.data).toEqual([
+        {
+          name: "Item 9",
+          description: "Description 9",
+          price: 900,
+        },
+        {
+          name: "Item 10",
+          description: "Description 10",
+          price: 1000,
         },
       ]);
     });
@@ -730,7 +861,6 @@ describe("custom fetch data - with redux", () => {
           limit: 3,
           data: stateResult.current[0],
           onPageChange: (page: number) => {
-            console.log("onPageChange", page);
             if (page === 2) {
               act(() => {
                 stateResult.current[1]([
@@ -803,7 +933,6 @@ describe("custom fetch data - with redux", () => {
       limit: 4,
       data: stateResult.current[0],
       onPageChange: (page: number) => {
-        console.log("onPageChange", page);
         if (page === 2) {
           act(() => {
             stateResult.current[1]([

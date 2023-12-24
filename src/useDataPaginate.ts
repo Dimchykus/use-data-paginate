@@ -33,6 +33,8 @@ interface PaginationProps<R> {
   page: number;
   limit?: number;
   isLoading?: boolean;
+  totalItems?: number;
+  totalPages?: number;
   parseTotalItems?: (data: R) => number;
   parseTotalPages?: (data: R) => number;
   onPageChange?: (page: number) => void;
@@ -69,7 +71,7 @@ export interface PaginationInstance<T> {
   pagesCount: number;
   total: number;
   limit: number;
-  fetchedCount: number;
+  totalItems: number;
   loading: boolean;
   error: any;
   next(): void;
@@ -92,14 +94,16 @@ const useDataPaginate = <T extends Record<string, any>, R>(
     pageName = "page",
     limitName = "limit",
     isLoading: isDataLoading,
+    totalItems: totalItemsProp,
+    totalPages: totalPagesProp,
     parseData,
     parseTotalItems,
     parseTotalPages,
     onPageChange,
   } = props;
   const [currentPage, setCurrentPage] = useState<number>(page || 1);
-  const [totalItems, setTotalItems] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
+  const [totalItems, setTotalItems] = useState(totalItemsProp ?? 0);
+  const [totalPages, setTotalPages] = useState(totalPagesProp ?? 0);
   const [allItems, setAllItems] = useState<PaginatedObj<T>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [passedData, setPassedData] = useState<T[] | null>(data ?? null);
@@ -144,7 +148,7 @@ const useDataPaginate = <T extends Record<string, any>, R>(
   }, [totalPages, isLast]);
 
   const setPage = (page: number): boolean => {
-    if (page < 1 || page > Math.ceil(totalItems)) return false;
+    if (page < 1 || page === currentPage) return false;
 
     setCurrentPage(page);
     fetch(page);
@@ -197,7 +201,6 @@ const useDataPaginate = <T extends Record<string, any>, R>(
   const customGetPage = (page: number, limit?: number) => {
     if (!onPageChange || isPageExists(page)) return;
 
-    console.log("customGetPage", page, limit);
     onPageChange(page);
   };
 
@@ -267,8 +270,6 @@ const useDataPaginate = <T extends Record<string, any>, R>(
     if (passedData) {
       const res = paginateArray<T>(passedData, limit);
 
-      console.log("res", res);
-
       setAllItems(res);
 
       let page = currentPage;
@@ -281,16 +282,9 @@ const useDataPaginate = <T extends Record<string, any>, R>(
 
       setCurrentPage(page);
 
-      setTotalItems(passedData.length);
+      if (!totalItemsProp) setTotalItems(passedData.length);
 
-      const pages = parseInt(
-        Object.keys(res)[Object.keys(res).length - 1] ?? "",
-        10
-      );
-
-      if (!Number.isNaN(pages)) {
-        setTotalPages(pages + 1);
-      }
+      if (!totalPagesProp) setTotalPages(Object.keys(res).length);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [passedData, limit]);
@@ -298,18 +292,25 @@ const useDataPaginate = <T extends Record<string, any>, R>(
   useEffect(() => {
     if (!passedData) return;
 
-    console.log("initData", passedData, limit, limit);
     initData();
   }, [initData, passedData, limit]);
 
   useEffect(() => {
     fetch(currentPage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [limit]);
 
-  // const updateDataDependency = useMemo(() => {
-  //   return arraysEqual(passedData, data ?? []);
-  // }, [passedData, data]);
+  useEffect(() => {
+    if (!totalItemsProp) return;
+
+    setTotalItems(totalItemsProp);
+  }, [totalItemsProp]);
+
+  useEffect(() => {
+    if (!totalPagesProp) return;
+
+    setTotalPages(totalPagesProp);
+  }, [totalPagesProp]);
 
   useEffect(() => {
     if (data) {
@@ -331,7 +332,7 @@ const useDataPaginate = <T extends Record<string, any>, R>(
     isLast,
     pagesCount: totalPages,
     total: totalItems,
-    fetchedCount: countItems(),
+    totalItems: countItems(),
     loading: isLoading,
     error,
     limit,

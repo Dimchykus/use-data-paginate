@@ -46,7 +46,8 @@
     "eject": "react-scripts eject",
     "prod": "yarn build && npx serve -s build",
     "link-local": "yarn link && cd node_modules/react && yarn link && cd ../react-dom && yarn link",
-    "unlink-local": "yarn unlink && cd node_modules/react && yarn unlink && cd ../react-dom && yarn unlink"
+    "unlink-local": "yarn unlink && cd node_modules/react && yarn unlink && cd ../react-dom && yarn unlink",
+    "publish": "npm publish --access public"
   },
   "eslintConfig": {
     "extends": [
