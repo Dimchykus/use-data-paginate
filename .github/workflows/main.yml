@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  release:
+    types:
+      - created
+  pull_request:
+    branches:
+      - main
+jobs:
+  run-linters:
+    name: Lint & Jest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v2
+      - name: Set up Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 20.x
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "::set-output name=dir::$(yarn cache dir)"
+
+      - uses: actions/cache@v3
+        id: yarn-cache
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+      - name: Install dependencies
+        run: yarn --prefer-offline
+      - name: Run linters
+        run: yarn lint
+  build:
+    runs-on: ubuntu-latest
+    name: Build and Test
+    steps:
+      - uses: actions/checkout@v2
+        name: Check out repository
+      - uses: actions/setup-node@v1
+        name: Set up Node.js
+        with:
+          node-version: 20.x
+  test:
+    runs-on: ubuntu-latest
+    name: Run Jest
+    steps:
+      - uses: actions/checkout@v2
+        name: Check out repository
+      - uses: actions/setup-node@v1
+        name: Set up Node.js
+        with:
+          node-version: 20.x
+      - run: yarn test
